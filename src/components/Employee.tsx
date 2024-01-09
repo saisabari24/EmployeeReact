@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 interface IEmployee {
+  employeeId?: number;
   employeeName: string;
   employeeSalary: number;
   employeeCity: string;
@@ -19,12 +20,16 @@ export default function Employee() {
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState<IEmployee[]>([]);
   const [buttonClicked, setButtonClicked] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<IEmployee | null>(
+    null
+  );
 
   useEffect(() => {
     // Fetch all employees when the component mounts
     if (buttonClicked) fetchEmployees();
     return setButtonClicked(false);
   }, [buttonClicked]);
+
   const handleGetAllEmployees = () => {
     setButtonClicked(true);
   };
@@ -58,31 +63,82 @@ export default function Employee() {
     };
     setLoading(true);
 
-    console.log(employee);
+    if (editingEmployee) {
+      // Edit existing employee
+      axios
+        .put(
+          `http://localhost:8080/api/v1/employees/${editingEmployee.employeeId}`,
+          employee,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        )
+        .then(() => {
+          alert(`Edited Employee ${editingEmployee.employeeName} successfully`);
+        })
+        .catch((error) => {
+          console.log(error);
+          alert("Error editing employee. Please try again.");
+        })
+        .finally(() => {
+          setLoading(false);
+          setEditingEmployee(null);
+          // Fetch updated employee list
+          fetchEmployees();
+        });
+    } else {
+      // Add new employee
+      axios
+        .post("http://localhost:8080/api/v1/employees", employee, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+        .then(() => {
+          alert(`Added Employee ${employee.employeeName} successfully`);
+        })
+        .catch((error) => {
+          console.log(error);
+          alert("Error adding employee. Please try again.");
+        })
+        .finally(() => {
+          setLoading(false);
+          // Fetch updated employee list
+          fetchEmployees();
+        });
+    }
 
-    axios
-      .post("http://localhost:8080/api/v1/employees", employee, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      .then(() => {
-        // Reset the form or perform other actions here
-        setName("");
-        setSalary("");
-        setCity("");
-        // Fetch updated employee list
-        //fetchEmployees();
-        alert(`Added Employee ${employee.employeeName} successfully`);
-      })
-      .catch((error) => {
-        console.log(error);
-        // Handle the error, show a message to the user, etc.
-        alert("Error adding employee. Please try again.");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    // Reset the form
+    setName("");
+    setSalary("");
+    setCity("");
+  };
+
+  const handleEditEmployee = (employee: IEmployee) => {
+    setEditingEmployee(employee);
+    setName(employee.employeeName);
+    setSalary(
+      employee.employeeSalary ? employee.employeeSalary.toString() : ""
+    );
+    setCity(employee.employeeCity);
+  };
+
+  const handleDeleteEmployee = (employeeId: number) => {
+    if (window.confirm("Are you sure you want to delete this employee?")) {
+      axios
+        .delete(`http://localhost:8080/api/v1/employees/${employeeId}`)
+        .then(() => {
+          alert("Employee deleted successfully");
+          // Fetch updated employee list
+          fetchEmployees();
+        })
+        .catch((error) => {
+          console.log(error);
+          alert("Error deleting employee. Please try again.");
+        });
+    }
   };
 
   const paperStyle = {
@@ -100,7 +156,7 @@ export default function Employee() {
             fontFamily: "Roboto, Helvetica, Arial, sans-serif",
           }}
         >
-          Add Employee
+          Add/Edit Employee
         </h1>
         <Box
           component="form"
@@ -142,7 +198,7 @@ export default function Employee() {
             onClick={handleSubmit}
             disabled={loading}
           >
-            {loading ? "Submitting..." : "Submit"}
+            {loading ? "Submitting..." : editingEmployee ? "Edit" : "Add"}
           </Button>
 
           <h1
@@ -168,6 +224,22 @@ export default function Employee() {
               <p>Name: {employee.employeeName}</p>
               <p>Salary: {employee.employeeSalary}</p>
               <p>City: {employee.employeeCity}</p>
+              <Button
+                color="primary"
+                variant="contained"
+                onClick={() => handleEditEmployee(employee)}
+              >
+                Edit
+              </Button>
+              {"   "}
+              <Button
+                color="secondary"
+                variant="contained"
+                //@ts-ignore
+                onClick={() => handleDeleteEmployee(employee.employeeId)}
+              >
+                Delete
+              </Button>
               <hr />
             </div>
           ))}
